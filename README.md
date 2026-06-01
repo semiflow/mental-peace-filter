@@ -17,9 +17,15 @@ All detection happens **client-side** through a regex-based dictionary. No exter
 ## Features
 
 - **Real-time filtering** via `MutationObserver` — works on GitHub's SPA navigation and lazy-loaded comments.
-- **Popup toggle** — turn the filter on/off instantly without reloading the page.
-- **Healed-text counter** — track how many comments have been softened.
+- **Global toggle** — turn the filter on/off instantly without reloading the page.
+- **Per-category toggles** — independently enable or disable Rush, Toxic, or Noise filtering. Changes apply immediately to the active tab.
+- **Inline "Not harmful" allowlist** — click the small button on any filtered comment to mark it as a false positive. The normalized text is stored locally and that exact comment (and identical future ones) won't be filtered again.
+- **Healed-text counter** — track how many comments have been softened. The counter does not double-count when categories are toggled off and back on.
 - **Primer-friendly styling** — visual treatments match GitHub's native look and feel.
+
+### Privacy
+
+Everything — including the allowlist — is stored only in `chrome.storage.local`. No data is sent to any external server, and the extension does not request broader permissions than `storage` and access to `github.com`.
 
 ## Installation
 
@@ -46,6 +52,21 @@ All detection happens **client-side** through a regex-based dictionary. No exter
 └── popup.js        # Toggle + counter logic
 ```
 
+## Manual test checklist
+
+There is no automated test runner. After making changes, walk through the following on a real GitHub Issue/PR page:
+
+1. Global toggle off removes all transforms from the page.
+2. Turning off only **Rush** restores rush comments while Toxic and Noise stay filtered.
+3. Turning off only **Toxic** restores toxic comments while Rush and Noise stay filtered.
+4. Turning off only **Noise** restores noise comments while Rush and Toxic stay filtered.
+5. Turning a category back on rescans the page and reapplies only that category.
+6. Clicking **Not harmful** on a filtered comment restores it immediately.
+7. Reloading the page keeps that comment unfiltered because the text is allowlisted.
+8. Allowlist does not create duplicate entries for the same normalized text.
+9. The healed-text counter does not increase when removing or restoring transforms (toggling categories or clicking Not harmful).
+10. No network calls are introduced — verify via the browser DevTools Network tab.
+
 ## Status
 
-Prototype. The dictionary is intentionally broad and may produce false positives — tune the patterns in `content.js` to fit your needs.
+Prototype. The dictionary is intentionally broad and may produce false positives — use the inline **Not harmful** button to allowlist any misclassified comment, or tune the patterns in `content.js`.

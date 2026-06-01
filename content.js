@@ -143,10 +143,38 @@ const DICTIONARY = {
 const State = {
     enabled: true,
     count: 0,
-    originals: new WeakMap()   // element → 원본 innerHTML
+    originals:       new WeakMap(),   // element → 원본 innerHTML (rush/toxic)
+    originalTexts:   new WeakMap(),   // element → 원본 plain text (allowlist용)
+    countedElements: new WeakSet(),   // 카운터 중복 방지 (토글로 재진입해도 1회만)
+    categories: { rush: true, toxic: true, noise: true },
+    allowlist: []                     // [{ text, type, createdAt }]
 };
 
 const TARGET_SELECTOR = '.comment-body, .js-issue-title';
+
+// ------------------------------------------------------------
+// 텍스트 정규화 & 허용목록(False-positive allowlist)
+// ------------------------------------------------------------
+function normalizeText(text) {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function isAllowlisted(text) {
+    const norm = normalizeText(text);
+    if (!norm) return false;
+    return State.allowlist.some(entry => entry.text === norm);
+}
+
+function addToAllowlist(text, type) {
+    const norm = normalizeText(text);
+    if (!norm) return;
+    if (State.allowlist.some(e => e.text === norm)) return; // 중복 방지
+    State.allowlist.push({ text: norm, type, createdAt: Date.now() });
+    chrome.storage.local.set({ allowlist: State.allowlist });
+}
 
 // ------------------------------------------------------------
 // 텍스트 치환 핵심 엔진
@@ -155,8 +183,10 @@ function processElement(el) {
     if (!el || el.dataset.mpfProcessed) return;
     const text = el.textContent ? el.textContent.trim() : '';
     if (!text) return;
+    if (isAllowlisted(text)) return;
 
     for (const [type, config] of Object.entries(DICTIONARY)) {
+        if (State.categories[type] === false) continue;
         for (const pattern of config.patterns) {
             if (pattern.test(text)) {
                 applyTransform(el, type, config);
@@ -168,6 +198,8 @@ function processElement(el) {
 
 function applyTransform(el, type, config) {
     el.dataset.mpfProcessed = type;
+    // 정규화 전 원본 텍스트 — innerHTML 교체 전에 캡처
+    State.originalTexts.set(el, el.textContent || '');
 
     if (type === 'noise') {
         // 유형 3: 원문 유지 + 시각적 축소
@@ -186,27 +218,78 @@ function applyTransform(el, type, config) {
         }
     }
 
-    State.count++;
-    chrome.storage.local.set({ count: State.count });
+    attachAllowButton(el);
+
+    // 카운터는 동일 element에 대해 1회만 증가
+    if (!State.countedElements.has(el)) {
+        State.countedElements.add(el);
+        State.count++;
+        chrome.storage.local.set({ count: State.count });
+    }
+}
+
+// ------------------------------------------------------------
+// "Not harmful" 버튼 — 잘못 잡힌 댓글을 사용자 허용목록에 추가
+// ------------------------------------------------------------
+function attachAllowButton(el) {
+    if (el.querySelector(':scope > .mpf-allow-button')) return; // 중복 방지
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mpf-allow-button';
+    btn.textContent = 'Not harmful';
+    btn.title = 'Stop filtering this comment text';
+    btn.addEventListener('click', handleAllowClick);
+    el.appendChild(btn);
+}
+
+function handleAllowClick(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget.closest('[data-mpf-processed]');
+    if (!el) return;
+    const type = el.dataset.mpfProcessed;
+    const original = State.originalTexts.get(el) || el.textContent || '';
+    addToAllowlist(original, type);
+    restoreElement(el);
 }
 
 function toggleOriginal(e) {
     // 링크 클릭은 토글에서 제외 (이동 우선)
     if (e.target.tagName === 'A') return;
+    // "Not harmful" 버튼 클릭은 별도 처리 (stopPropagation 외 이중 안전장치)
+    if (e.target.closest && e.target.closest('.mpf-allow-button')) return;
     e.currentTarget.classList.toggle('show-original');
 }
 
-function removeAllTransforms() {
+// ------------------------------------------------------------
+// 복원
+// ------------------------------------------------------------
+function restoreElement(el) {
+    if (!el || !el.dataset.mpfProcessed) return;
+    const type = el.dataset.mpfProcessed;
+
+    if ((type === 'rush' || type === 'toxic') && State.originals.has(el)) {
+        el.innerHTML = State.originals.get(el);
+    }
+    if (type === 'toxic') {
+        el.removeEventListener('click', toggleOriginal);
+    }
+
+    // 위에서 innerHTML 교체 시 버튼이 함께 사라졌을 수 있지만, noise나 fallback 처리
+    const lingeringBtn = el.querySelector(':scope > .mpf-allow-button');
+    if (lingeringBtn) {
+        lingeringBtn.removeEventListener('click', handleAllowClick);
+        lingeringBtn.remove();
+    }
+
+    el.classList.remove('mpf-rush', 'mpf-toxic', 'mpf-noise', 'show-original');
+    delete el.dataset.mpfProcessed;
+}
+
+function removeAllTransforms(typeFilter) {
     document.querySelectorAll('[data-mpf-processed]').forEach(el => {
-        const type = el.dataset.mpfProcessed;
-        if ((type === 'rush' || type === 'toxic') && State.originals.has(el)) {
-            el.innerHTML = State.originals.get(el);
-        }
-        if (type === 'toxic') {
-            el.removeEventListener('click', toggleOriginal);
-        }
-        el.classList.remove('mpf-rush', 'mpf-toxic', 'mpf-noise', 'show-original');
-        delete el.dataset.mpfProcessed;
+        if (typeFilter && el.dataset.mpfProcessed !== typeFilter) return;
+        restoreElement(el);
     });
 }
 
@@ -259,6 +342,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (State.enabled) scanAll();
         else removeAllTransforms();
         sendResponse({ ok: true, enabled: State.enabled });
+    } else if (msg.type === 'UPDATE_CATEGORIES') {
+        const incoming = msg.categories || {};
+        for (const type of Object.keys(State.categories)) {
+            if (!(type in incoming)) continue;
+            const prev = State.categories[type] !== false;
+            const next = incoming[type] !== false;
+            State.categories[type] = next;
+            if (prev && !next) removeAllTransforms(type); // OFF로 바뀐 유형만 복원
+        }
+        if (State.enabled) scanAll(); // ON된 유형은 재스캔으로 적용
+        sendResponse({ ok: true });
     } else if (msg.type === 'RESET_COUNT') {
         State.count = 0;
         chrome.storage.local.set({ count: 0 });
@@ -268,11 +362,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ------------------------------------------------------------
+// 다른 탭/팝업에서 storage가 바뀌면 동기화 (allowlist 등)
+// ------------------------------------------------------------
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.allowlist) {
+        State.allowlist = Array.isArray(changes.allowlist.newValue)
+            ? changes.allowlist.newValue : [];
+    }
+});
+
+// ------------------------------------------------------------
 // 초기화
 // ------------------------------------------------------------
-chrome.storage.local.get(['enabled', 'count'], (data) => {
+chrome.storage.local.get(['enabled', 'count', 'categories', 'allowlist'], (data) => {
     State.enabled = data.enabled !== false; // 기본값 true
     State.count = typeof data.count === 'number' ? data.count : 0;
+    State.categories = Object.assign(
+        { rush: true, toxic: true, noise: true },
+        data.categories || {}
+    );
+    State.allowlist = Array.isArray(data.allowlist) ? data.allowlist : [];
     if (State.enabled) scanAll();
     startObserver();
 });

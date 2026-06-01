@@ -97,3 +97,35 @@
 .mpf-noise:hover {
     opacity: 0.9;
 }
+
+
+/* ------------------------------------------------------------
+   "Not harmful" 버튼 — 잘못 잡힌 댓글을 허용목록에 추가
+   ------------------------------------------------------------ */
+.mpf-allow-button {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-family: inherit;
+    background: transparent;
+    color: #57606a;
+    border: 1px solid #d0d7de;
+    border-radius: 12px;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mpf-allow-button:hover {
+    background: #f6f8fa;
+    color: #1f2328;
+    border-color: #afb8c1;
+}
+
+/* noise 카테고리는 자식 폰트를 강제 축소하므로 버튼 크기를 명시 복원 */
+.mpf-noise .mpf-allow-button {
+    font-size: 11px !important;
+    color: #57606a !important;
+    opacity: 0.85;
+}
