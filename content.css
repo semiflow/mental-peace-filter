@@ -1,0 +1,99 @@
+/* ============================================================
+   GitHub Mental Peace Filter — Content Style
+   (GitHub Primer 디자인과 이질감 없도록 톤 매칭)
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   유형 1: 무례한 재촉 (Rush)
+   - 평소: 부드러운 파란 톤 placeholder 표시
+   - 호버: placeholder 숨김 + 원문이 흐리게(opacity 0.4) 노출
+   ------------------------------------------------------------ */
+.mpf-rush > .mpf-placeholder {
+    display: inline-block;
+    padding: 2px 10px;
+    margin: 2px 0;
+    background: #ddf4ff;
+    border-left: 3px solid #54aeff;
+    border-radius: 6px;
+    color: #0969da;
+    font-style: italic;
+    font-size: 0.92em;
+    cursor: default;
+}
+
+.mpf-rush > .mpf-original {
+    display: none;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.mpf-rush:hover > .mpf-placeholder {
+    display: none;
+}
+
+.mpf-rush:hover > .mpf-original {
+    display: block;
+}
+
+
+/* ------------------------------------------------------------
+   유형 2: 비난/감정 배설 (Toxic)
+   - 평소: 빨간 경고 카드 형태로 placeholder만 표시
+   - 클릭: .show-original 토글 → 원문 노출
+   ------------------------------------------------------------ */
+.mpf-toxic > .mpf-placeholder {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 2px 0;
+    background: #ffebe9;
+    border-left: 3px solid #cf222e;
+    border-radius: 6px;
+    color: #cf222e;
+    font-weight: 600;
+    font-size: 0.95em;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.mpf-toxic > .mpf-placeholder:hover {
+    background: #ffd7d4;
+}
+
+.mpf-toxic > .mpf-original {
+    display: none;
+}
+
+.mpf-toxic.show-original > .mpf-placeholder {
+    display: none;
+}
+
+.mpf-toxic.show-original > .mpf-original {
+    display: block;
+    padding: 6px 10px;
+    border-left: 3px solid #cf222e;
+    background: #fff8f7;
+    border-radius: 4px;
+    opacity: 0.75;
+}
+
+
+/* ------------------------------------------------------------
+   유형 3: 무의미 노이즈 (Noise)
+   - 글자 크기 축소 + 회색 + 투명도 낮춤
+   ------------------------------------------------------------ */
+.mpf-noise {
+    font-size: 0.7em !important;
+    color: #afb8c1 !important;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+}
+
+.mpf-noise * {
+    font-size: inherit !important;
+    color: inherit !important;
+}
+
+.mpf-noise:hover {
+    opacity: 0.9;
+}

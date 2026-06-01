@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Mental Peace Filter</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            width: 280px;
+            margin: 0;
+            padding: 18px 18px 14px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+            background: linear-gradient(160deg, #f0fdf9 0%, #e0f2fe 100%);
+            color: #1e293b;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .header-icon { font-size: 18px; }
+
+        .title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f766e;
+            letter-spacing: 0.2px;
+        }
+
+        .subtitle {
+            margin: 4px 0 14px;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(15, 118, 110, 0.06);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Toggle row */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .toggle-state {
+            display: block;
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #cbd5e1;
+            border-radius: 22px;
+            transition: background 0.2s ease;
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+
+        input:checked + .slider {
+            background: #14b8a6;
+        }
+
+        input:checked + .slider::before {
+            transform: translateX(18px);
+        }
+
+        /* Stats */
+        .stats {
+            text-align: center;
+            padding: 16px 12px;
+        }
+
+        .stats-label {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 6px;
+            letter-spacing: 0.4px;
+        }
+
+        .stats-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0f766e;
+            line-height: 1;
+        }
+
+        .stats-unit {
+            font-size: 13px;
+            color: #64748b;
+            margin-left: 2px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 8px;
+            letter-spacing: 0.3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="header-icon">🍃</span>
+        <h1 class="title">마음의 평화 필터</h1>
+    </div>
+    <p class="subtitle">GitHub Issue/PR의 무례한 재촉·비난·노이즈를 부드럽게 순화합니다.</p>
+
+    <div class="card">
+        <div class="toggle-row">
+            <div>
+                <span class="toggle-label">필터 활성화</span>
+                <span class="toggle-state" id="state">활성</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="card stats">
+        <span class="stats-label">오늘 치유된 텍스트</span>
+        <span class="stats-value" id="count">0</span><span class="stats-unit">개</span>
+    </div>
+
+    <div class="footer">made with 🌿 for tired maintainers</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
