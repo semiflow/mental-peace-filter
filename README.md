@@ -20,6 +20,7 @@ All detection happens **client-side** through a regex-based dictionary. No exter
 - **Global toggle** — turn the filter on/off instantly without reloading the page.
 - **Per-category toggles** — independently enable or disable Rush, Toxic, or Noise filtering. Changes apply immediately to the active tab.
 - **Inline "Not harmful" allowlist** — click the small button on any filtered comment to mark it as a false positive. The normalized text is stored locally and that exact comment (and identical future ones) won't be filtered again.
+- **Allowlist management** — the popup shows every allowlisted entry with its category. Click ✕ to remove an entry; any matching comment currently on the page is re-filtered immediately.
 - **Healed-text counter** — track how many comments have been softened. The counter does not double-count when categories are toggled off and back on.
 - **Primer-friendly styling** — visual treatments match GitHub's native look and feel.
 
@@ -66,6 +67,8 @@ There is no automated test runner. After making changes, walk through the follow
 8. Allowlist does not create duplicate entries for the same normalized text.
 9. The healed-text counter does not increase when removing or restoring transforms (toggling categories or clicking Not harmful).
 10. No network calls are introduced — verify via the browser DevTools Network tab.
+11. After "Not harmful", the entry appears in the popup's allowlist with the correct category badge.
+12. Clicking the ✕ in the popup's allowlist removes the entry, and any matching comment on the page is re-filtered without a reload.
 
 ## Status
 

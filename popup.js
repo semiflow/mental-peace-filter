@@ -6,6 +6,9 @@ const toggleEl = document.getElementById('toggle');
 const stateEl = document.getElementById('state');
 const countEl = document.getElementById('count');
 const catToggleEls = document.querySelectorAll('.cat-toggle');
+const allowListEl = document.getElementById('allow-list');
+const allowEmptyEl = document.getElementById('allow-empty');
+const allowCountEl = document.getElementById('allow-count');
 
 const DEFAULT_CATEGORIES = { rush: true, toxic: true, noise: true };
 
@@ -28,16 +31,66 @@ function renderCategories(cats) {
     });
 }
 
+function renderAllowlist(allowlist) {
+    const list = Array.isArray(allowlist) ? allowlist : [];
+    allowCountEl.textContent = list.length;
+
+    // 빈 상태
+    if (list.length === 0) {
+        allowEmptyEl.style.display = 'block';
+        allowListEl.innerHTML = '';
+        return;
+    }
+    allowEmptyEl.style.display = 'none';
+    allowListEl.innerHTML = '';
+
+    // 최근 추가 먼저 표시
+    const sorted = list.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    for (const entry of sorted) {
+        const item = document.createElement('li');
+        item.className = 'allow-item';
+        item.dataset.text = entry.text;
+
+        const body = document.createElement('div');
+        body.className = 'allow-item-body';
+
+        const textEl = document.createElement('div');
+        textEl.className = 'allow-item-text';
+        textEl.textContent = entry.text;     // textContent로 안전 삽입
+
+        const typeEl = document.createElement('span');
+        typeEl.className = 'allow-item-type';
+        typeEl.dataset.type = entry.type || '';
+        typeEl.textContent = entry.type || '';
+
+        body.appendChild(textEl);
+        body.appendChild(typeEl);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'allow-item-remove';
+        removeBtn.title = '허용 목록에서 삭제';
+        removeBtn.setAttribute('aria-label', '삭제');
+        removeBtn.textContent = '×';
+
+        item.appendChild(body);
+        item.appendChild(removeBtn);
+        allowListEl.appendChild(item);
+    }
+}
+
 // ------------------------------------------------------------
 // 초기 로드
 // ------------------------------------------------------------
 async function loadState() {
-    const data = await chrome.storage.local.get(['enabled', 'count', 'categories']);
+    const data = await chrome.storage.local.get(['enabled', 'count', 'categories', 'allowlist']);
     const enabled = data.enabled !== false;
     const categories = Object.assign({}, DEFAULT_CATEGORIES, data.categories || {});
     renderEnabled(enabled);
     renderCount(data.count);
     renderCategories(categories);
+    renderAllowlist(data.allowlist);
 }
 
 // ------------------------------------------------------------
@@ -83,6 +136,22 @@ async function handleCategoryChange() {
 catToggleEls.forEach(cb => cb.addEventListener('change', handleCategoryChange));
 
 // ------------------------------------------------------------
+// 허용목록 항목 삭제 — content script는 storage.onChanged로 자동 재스캔
+// ------------------------------------------------------------
+allowListEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.allow-item-remove');
+    if (!btn) return;
+    const item = btn.closest('.allow-item');
+    if (!item) return;
+    const text = item.dataset.text;
+
+    const data = await chrome.storage.local.get(['allowlist']);
+    const current = Array.isArray(data.allowlist) ? data.allowlist : [];
+    const updated = current.filter(entry => entry.text !== text);
+    await chrome.storage.local.set({ allowlist: updated });
+});
+
+// ------------------------------------------------------------
 // 다른 곳에서 상태가 바뀌면 팝업에도 실시간 반영
 // ------------------------------------------------------------
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -92,6 +161,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (changes.categories) {
         const cats = Object.assign({}, DEFAULT_CATEGORIES, changes.categories.newValue || {});
         renderCategories(cats);
+    }
+    if (changes.allowlist) {
+        renderAllowlist(changes.allowlist.newValue);
     }
 });
 

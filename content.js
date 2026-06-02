@@ -366,10 +366,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // ------------------------------------------------------------
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.allowlist) {
-        State.allowlist = Array.isArray(changes.allowlist.newValue)
-            ? changes.allowlist.newValue : [];
-    }
+    if (!changes.allowlist) return;
+
+    State.allowlist = Array.isArray(changes.allowlist.newValue)
+        ? changes.allowlist.newValue : [];
+
+    if (!State.enabled) return;
+
+    // 1) 이미 변환된 element 중 새로 허용목록에 들어간 것은 즉시 복원
+    //    (다른 탭에서 "Not harmful"을 눌렀거나, 동일 텍스트의 다른 댓글이 있을 때)
+    document.querySelectorAll('[data-mpf-processed]').forEach(el => {
+        const original = State.originalTexts.get(el) || el.textContent || '';
+        if (isAllowlisted(original)) restoreElement(el);
+    });
+
+    // 2) 허용목록에서 삭제된 항목은 다시 매칭되어야 하므로 전체 재스캔
+    scanAll();
 });
 
 // ------------------------------------------------------------

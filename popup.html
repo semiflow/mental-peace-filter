@@ -185,6 +185,108 @@
             display: block;
             margin-top: 1px;
         }
+
+        /* Allowlist */
+        .allow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0 0 8px;
+        }
+
+        .allow-count {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .allow-empty {
+            margin: 6px 0 0;
+            font-size: 11px;
+            color: #94a3b8;
+            text-align: center;
+            padding: 10px 0 4px;
+            line-height: 1.5;
+        }
+
+        .allow-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .allow-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .allow-list::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 4px;
+        }
+
+        .allow-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 8px 0;
+            border-top: 1px dashed rgba(0, 0, 0, 0.06);
+        }
+
+        .allow-item:first-child {
+            border-top: none;
+            padding-top: 2px;
+        }
+
+        .allow-item-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .allow-item-text {
+            font-size: 11px;
+            color: #334155;
+            line-height: 1.45;
+            word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .allow-item-type {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #f3f4f6;
+            color: #57606a;
+        }
+        .allow-item-type[data-type="rush"]  { background: #ddf4ff; color: #0969da; }
+        .allow-item-type[data-type="toxic"] { background: #ffebe9; color: #cf222e; }
+        .allow-item-type[data-type="noise"] { background: #f1f5f9; color: #64748b; }
+
+        .allow-item-remove {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            font-size: 16px;
+            color: #cbd5e1;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            border-radius: 4px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .allow-item-remove:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
     </style>
 </head>
 <body>
@@ -235,6 +337,17 @@
     <div class="card stats">
         <span class="stats-label">오늘 치유된 텍스트</span>
         <span class="stats-value" id="count">0</span><span class="stats-unit">개</span>
+    </div>
+
+    <div class="card">
+        <div class="allow-header">
+            <p class="cat-heading" style="margin:0;">허용 목록</p>
+            <span class="allow-count" id="allow-count">0</span>
+        </div>
+        <p class="allow-empty" id="allow-empty">
+            "Not harmful"로 추가된 항목이 여기 표시됩니다.
+        </p>
+        <ul class="allow-list" id="allow-list"></ul>
     </div>
 
     <div class="footer">made with 🌿 for tired maintainers</div>
