@@ -13,17 +13,15 @@ const DICTIONARY = {
         placeholder: '[진행 상황 확인 요청으로 순화됨]',
         patterns: [
             // 한국어
-            /언제\s*수정/,
+            /언제\s*수정\s*[되됩]/,             // "언제 수정되나요/됩니까" (기존 /언제\s*수정/ 보다 좁힘 — "수정된 후" 같은 정보 질문 제외)
             /언제\s*되나요/,
             /언제\s*됩니까/,
             /언제까지\s*기다/,
             /도대체\s*언제/,
-            /빨리\s*고쳐/,
-            /빨리\s*해\s*주/,
             /왜\s*안\s*고치/,
             /왜\s*이렇게\s*오래/,
             /아직\s*안\s*[됐돼됨]/,
-            /업데이트\s*[언제없]/,
+            /업데이트\s*언제/,                  // 기존 /업데이트\s*[언제없]/ 에서 "없이/없는" 등 정상 표현 제외
             /확인\s*좀\s*해\s*주/,
             /답변\s*좀\s*주/,
             /급한데/,
@@ -31,77 +29,79 @@ const DICTIONARY = {
             /언제\s*머지/,
             /언제\s*배포/,
             // 영어
-            /\bfix\s+this\s+(asap|now|please)\b/i,
-            /\bany\s+updates?\b/i,
+            /\bfix\s+this\s+(asap|now)\b/i,     // "please" 제거 — "please fix this" 는 정중한 요청일 수 있음
+            /\bany\s+updates?\??\s*$/im,        // 줄 끝 단독 형태로 좁힘 — "Any updates available for v2?" 같은 정상 질문 제외
             /\bwhy\s+is\s+this\s+taking\s+so\s+long\b/i,
             /\bwhen\s+will\s+this\s+be\s+(fixed|done|merged|released)\b/i,
             /\bwhen\s+can\s+we\s+expect\b/i,
-            /\bis\s+anyone\s+(working|looking)\s+on\b/i,
-            /\bany\s+progress\b/i,
+            /\bis\s+anyone\s+(working|looking)\s+on\s+this\b/i,
+            /\bany\s+progress\s*\??\s*$/im,     // 줄 끝 단독 형태로 좁힘 — "any progress bar" 같은 정상 표현 제외
             /\bstill\s+waiting\b/i,
             /\bhello\?+/i,
             /(^|\s)ping\??\s*$/im,
             /(^|\s)bump\s*$/im,
-            /\bcome\s+on\b/i,
             /\bstill\s+no\s+fix\b/i,
-            /\bany\s+eta\b/i,
-            /\bplease\s+(fix|merge|review|respond)\b/i,
-            /\bcan\s+you\s+(please\s+)?(fix|merge|look)\b/i
+            /\bany\s+eta\b/i
+            // 제거: /빨리\s*고쳐/, /빨리\s*해\s*주/ — "빨리 고쳐주셔서 감사합니다" 같은 감사 표현 FP
+            // 제거: /\bcome\s+on\b/i — "come on board/in" 등 정상 표현
+            // 제거: /\bplease\s+(fix|merge|review|respond)\b/i — 정중한 PR 요청에 흔히 등장
+            // 제거: /\bcan\s+you\s+(please\s+)?(fix|merge|look)\b/i — 동일
         ]
     },
     toxic: {
         placeholder: '⚠️ [메인테이너 보호를 위해 블라인드 처리된 문장입니다]',
         patterns: [
-            // 한국어
-            /쓰레기/,
+            // 한국어 — 부정 맥락이 명확한 형태만
+            /쓰레기\s*(?:같|네요|이네|이다|이야|입니다|야|짓|취급|코드)/,
+            /(?:이런|이딴|이거|이건|개)\s*쓰레기/,
             /망작/,
             /망쳤/,
             /이딴\s*거/,
             /병신/,
-            /어이없/,
-            /한심/,
-            /최악/,
+            /어이없(?:는|네|어|군)/,            // 평가형 어미만 매칭
+            /한심(?:하|한|해|네)/,              // 평가형 어미만 매칭
+            /최악(?:이|입니|이라)/,             // "최악의 경우" 같은 정상 표현 제외
             /개판/,
-            /엉망/,
+            /엉망(?:이|인|입니|진창)/,          // "엉망의" 같은 모호 표현 제외
             /빡친/,
             /빡쳐/,
-            /기본도\s*안/,
+            /기본도\s*안\s*되/,
             /왜\s*만들었/,
             /장난하/,
-            /실력이?\s*없/,
             /수준\s*보소/,
-            /후지/,
             /구려/,
             /짜증\s*나/,
-            /토\s*나/,
-            /실망\s*[했스]/,
-            // 영어
+            /실망\s*(?:했|스)/,
+            // 영어 — 명확한 욕설 및 모욕
             /\buseless\b/i,
-            /\bbroken\b/i,
-            /\bworst\b/i,
-            /\bgarbage\b/i,
-            /\btrash\b/i,
             /\bhorrible\b/i,
             /\bterrible\b/i,
             /\bstupid\b/i,
             /\bawful\b/i,
-            /\bdisaster\b/i,
+            /\b(?:complete|total|absolute|what\s+a)\s+disaster\b/i,  // "disaster recovery" 같은 기술 용어 제외
             /\bincompetent\b/i,
             /\bridiculous\b/i,
             /\bidiot/i,
             /\bwtf\b/i,
             /\bthis\s+is\s+a\s+joke\b/i,
-            /\bjoke\s+of\b/i,
+            /\bjoke\s+of\s+an?\s+(library|project|maintainer|developer|tool|api|product)\b/i,
             /\bwhat\s+(the\s+)?hell\b/i,
-            /\bare\s+you\s+(kidding|serious)/i,
+            /\bare\s+you\s+(kidding|serious)\b/i,
             /\bnonsense\b/i,
             /\bpathetic\b/i,
             /\bdisgrace/i,
-            /\bjunk\b/i,
             /\bcrap(py)?\b/i,
             /\bsucks?\b/i,
-            /\bshit(ty)?\b/i,
-            /\bdamn\s+(thing|library|tool|repo)/i
+            /\bshit(?:ty)?\b/i
+            // 제거: /\bbroken\b/i — 버그 리포트에서 "broken link/build/English" 등 정상 표현이 너무 많음
+            // 제거: /\bworst\b/i — "worst case" 등 기술 토론 빈출 표현
+            // 제거: /\bgarbage\b/i — "garbage collection" 등 기술 용어
+            // 제거: /\btrash\b/i — "TrashCan controller" 등 코드 식별자
+            // 제거: /\bjunk\b/i — "junk dimension" 등 데이터 용어
+            // 제거: /\bdamn\s+(thing|library|tool|repo)/i — "this damn library saved my life" 같은 긍정 강조
+            // 제거: /후지/ — "후지산", "후지필름" 등
+            // 제거: /토\s*나/ — 너무 짧고 무관한 단어 사이 매칭 위험
+            // 제거: /실력이?\s*없/ — "실력이 없는 분도 쓸 수 있게 설계됨" 같은 긍정 묘사
         ]
     },
     noise: {
