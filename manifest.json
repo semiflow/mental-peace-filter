@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GitHub Mental Peace Filter",
-  "version": "1.0.0",
-  "description": "오픈소스 메인테이너의 정신적 피로감을 줄이기 위한 GitHub Issue/PR 댓글 필터 (재촉/비난/노이즈 순화)",
+  "version": "1.1.0",
+  "description": "오픈소스 메인테이너의 정신적 피로감을 줄이기 위한 GitHub Issue/PR 댓글 필터 (재촉/비난/노이즈 순화) + 내 답글 톤 점검 거울",
   "permissions": ["storage"],
   "host_permissions": [
     "https://github.com/*"

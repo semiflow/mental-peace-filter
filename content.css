@@ -129,3 +129,167 @@
     color: #57606a !important;
     opacity: 0.85;
 }
+
+
+/* ============================================================
+   Self-Tone Mirror — 내 답글 톤 점검
+   ============================================================ */
+
+/* 인라인 거울 패널 — textarea 바로 아래 */
+.mpf-mirror-panel {
+    display: none;
+    margin: 6px 0;
+    padding: 6px 12px;
+    background: #fff8e1;
+    border-left: 3px solid #ffb74d;
+    border-radius: 6px;
+    color: #8b5a00;
+    font-size: 12px;
+    line-height: 1.5;
+    align-items: center;
+    gap: 8px;
+}
+
+.mpf-mirror-panel.mpf-mirror-active {
+    display: flex;
+}
+
+.mpf-mirror-panel .mpf-mirror-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.mpf-mirror-panel .mpf-mirror-text {
+    flex: 1;
+}
+
+/* 보내기 직전 모달 오버레이 */
+.mpf-mirror-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: mpf-mirror-fade 0.18s ease;
+}
+
+@keyframes mpf-mirror-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.mpf-mirror-modal {
+    width: 92%;
+    max-width: 440px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+                 "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color: #1e293b;
+}
+
+.mpf-mirror-modal-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #f0fdf9 0%, #e0f2fe 100%);
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f766e;
+}
+
+.mpf-mirror-modal-body {
+    padding: 16px 20px;
+}
+
+.mpf-mirror-modal-lead {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #334155;
+}
+
+.mpf-mirror-phrases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.mpf-mirror-phrase {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #ffebe9;
+    color: #cf222e;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.mpf-mirror-phrase-more {
+    display: inline-block;
+    padding: 3px 8px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.mpf-mirror-modal-hint {
+    margin: 0;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(0, 0, 0, 0.08);
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.55;
+}
+
+.mpf-mirror-modal-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px 18px;
+    justify-content: flex-end;
+}
+
+.mpf-mirror-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease;
+    border: none;
+}
+
+.mpf-mirror-btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+}
+.mpf-mirror-btn-secondary:hover {
+    background: #e2e8f0;
+}
+
+.mpf-mirror-btn-primary {
+    background: #0f766e;
+    color: #fff;
+    min-width: 150px;
+}
+.mpf-mirror-btn-primary:disabled {
+    background: #cbd5e1;
+    color: #64748b;
+    cursor: not-allowed;
+}
+.mpf-mirror-btn-primary:not(:disabled):hover {
+    background: #115e58;
+}
+
+.mpf-mirror-btn-countdown {
+    margin-right: 4px;
+    font-weight: 700;
+}
+
+.mpf-mirror-btn-label {
+    font-weight: 500;
+    font-size: 11px;
+}

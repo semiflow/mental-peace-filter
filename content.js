@@ -143,10 +143,12 @@ const DICTIONARY = {
 const State = {
     enabled: true,
     count: 0,
+    draftCount: 0,                    // Self-Tone Mirror가 잡은 답글 수
     originals:       new WeakMap(),   // element → 원본 innerHTML (rush/toxic)
     originalTexts:   new WeakMap(),   // element → 원본 plain text (allowlist용)
     countedElements: new WeakSet(),   // 카운터 중복 방지 (토글로 재진입해도 1회만)
     categories: { rush: true, toxic: true, noise: true },
+    selfMirrorEnabled: true,          // 내가 쓰는 답글 톤 점검 ON/OFF
     allowlist: []                     // [{ text, type, createdAt }]
 };
 
@@ -318,11 +320,23 @@ const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
         for (const node of m.addedNodes) {
             if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+            // 받은 댓글 처리
             if (typeof node.matches === 'function' && node.matches(TARGET_SELECTOR)) {
                 processElement(node);
             }
             if (typeof node.querySelectorAll === 'function') {
                 node.querySelectorAll(TARGET_SELECTOR).forEach(processElement);
+            }
+
+            // 내가 쓰는 textarea 점검 (Self-Tone Mirror)
+            if (State.selfMirrorEnabled) {
+                if (typeof node.matches === 'function' && node.matches(DRAFT_SELECTOR)) {
+                    ensureMirrorPanel(node);
+                }
+                if (typeof node.querySelectorAll === 'function') {
+                    node.querySelectorAll(DRAFT_SELECTOR).forEach(ensureMirrorPanel);
+                }
             }
         }
     }
@@ -339,8 +353,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || !msg.type) return;
     if (msg.type === 'TOGGLE') {
         State.enabled = !!msg.enabled;
-        if (State.enabled) scanAll();
-        else removeAllTransforms();
+        if (State.enabled) {
+            scanAll();
+            if (State.selfMirrorEnabled) scanDraftTargets();
+        } else {
+            removeAllTransforms();
+            unmountAllMirrors();
+        }
         sendResponse({ ok: true, enabled: State.enabled });
     } else if (msg.type === 'UPDATE_CATEGORIES') {
         const incoming = msg.categories || {};
@@ -353,9 +372,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         if (State.enabled) scanAll(); // ON된 유형은 재스캔으로 적용
         sendResponse({ ok: true });
+    } else if (msg.type === 'TOGGLE_SELF_MIRROR') {
+        State.selfMirrorEnabled = !!msg.enabled;
+        if (State.selfMirrorEnabled && State.enabled) scanDraftTargets();
+        else unmountAllMirrors();
+        sendResponse({ ok: true });
     } else if (msg.type === 'RESET_COUNT') {
         State.count = 0;
         chrome.storage.local.set({ count: 0 });
+        sendResponse({ ok: true });
+    } else if (msg.type === 'RESET_DRAFT_COUNT') {
+        State.draftCount = 0;
+        chrome.storage.local.set({ draftCount: 0 });
         sendResponse({ ok: true });
     }
     return true;
@@ -384,17 +412,282 @@ chrome.storage.onChanged.addListener((changes, area) => {
     scanAll();
 });
 
+// ============================================================
+// Self-Tone Mirror — 내가 쓰는 답글에 거울 비추기
+// (남이 나에게 쓴 글 → 받은 글 필터  /  내가 쓰는 글 → 보내기 전 점검)
+// 같은 DICTIONARY를 역방향으로 적용. 외부 API·서버 없음.
+// ============================================================
+
+const DRAFT_SELECTOR = [
+    'textarea.js-comment-field',
+    'textarea[name="comment[body]"]',
+    'textarea[name="issue[body]"]',
+    'textarea[name="pull_request[body]"]',
+    'textarea[name="pull_request_review[body]"]'
+].join(', ');
+
+function getDraftMatches(text, types) {
+    const matches = [];
+    if (!text || !text.trim()) return matches;
+    const checkTypes = types || ['toxic', 'rush']; // noise는 자기 답글에 무의미
+    for (const type of checkTypes) {
+        const config = DICTIONARY[type];
+        if (!config) continue;
+        for (const pattern of config.patterns) {
+            const m = text.match(pattern);
+            if (m && m[0]) matches.push({ type, phrase: m[0].trim() });
+        }
+    }
+    return matches;
+}
+
+function ensureMirrorPanel(textarea) {
+    if (!textarea || textarea.dataset.mpfMirrorMounted === '1') return;
+    if (!State.selfMirrorEnabled || !State.enabled) return;
+    textarea.dataset.mpfMirrorMounted = '1';
+
+    const panel = document.createElement('div');
+    panel.className = 'mpf-mirror-panel';
+    const icon = document.createElement('span');
+    icon.className = 'mpf-mirror-icon';
+    icon.textContent = '🪞';
+    const text = document.createElement('span');
+    text.className = 'mpf-mirror-text';
+    panel.appendChild(icon);
+    panel.appendChild(text);
+
+    // textarea 바로 아래에 삽입
+    const parent = textarea.parentElement;
+    if (parent) parent.insertBefore(panel, textarea.nextSibling);
+
+    textarea._mpfMirrorPanel = panel;
+    const handler = () => updateMirrorPanel(textarea);
+    textarea._mpfMirrorHandler = handler;
+    textarea.addEventListener('input', handler);
+    updateMirrorPanel(textarea);
+}
+
+function updateMirrorPanel(textarea) {
+    const panel = textarea && textarea._mpfMirrorPanel;
+    if (!panel) return;
+    const matches = getDraftMatches(textarea.value || '');
+    const textEl = panel.querySelector('.mpf-mirror-text');
+
+    if (matches.length === 0) {
+        panel.classList.remove('mpf-mirror-active');
+        textEl.textContent = '';
+        return;
+    }
+    panel.classList.add('mpf-mirror-active');
+    const phrases = matches.slice(0, 3).map(m => `"${m.phrase}"`).join(', ');
+    const more = matches.length > 3 ? ` 외 ${matches.length - 3}개` : '';
+    textEl.textContent = `강한 표현 감지: ${phrases}${more} — 보내기 전 한 번 더 보세요`;
+}
+
+function unmountMirrorPanel(textarea) {
+    if (!textarea || textarea.dataset.mpfMirrorMounted !== '1') return;
+    if (textarea._mpfMirrorPanel) {
+        textarea._mpfMirrorPanel.remove();
+        delete textarea._mpfMirrorPanel;
+    }
+    if (textarea._mpfMirrorHandler) {
+        textarea.removeEventListener('input', textarea._mpfMirrorHandler);
+        delete textarea._mpfMirrorHandler;
+    }
+    delete textarea.dataset.mpfMirrorMounted;
+}
+
+function scanDraftTargets(root) {
+    if (!State.selfMirrorEnabled || !State.enabled) return;
+    const scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll(DRAFT_SELECTOR).forEach(ensureMirrorPanel);
+}
+
+function unmountAllMirrors() {
+    document.querySelectorAll(DRAFT_SELECTOR).forEach(unmountMirrorPanel);
+    // 떠 있는 모달도 정리
+    document.querySelectorAll('.mpf-mirror-overlay').forEach(el => el.remove());
+}
+
+// ------------------------------------------------------------
+// 보내기 직전 차단 — TOXIC 매치가 있을 때만 카운트다운 모달
+// (Rush는 인라인 패널 경고만, 차단은 안 함)
+// ------------------------------------------------------------
+function findDraftTextareaForButton(btn) {
+    const form = btn.closest('form');
+    if (form) {
+        const t = form.querySelector(DRAFT_SELECTOR);
+        if (t) return t;
+    }
+    const region = btn.closest('.timeline-comment, .js-new-comment-form, .Box-body');
+    if (region) {
+        const t = region.querySelector(DRAFT_SELECTOR);
+        if (t) return t;
+    }
+    return null;
+}
+
+document.addEventListener('click', (e) => {
+    if (!State.enabled || !State.selfMirrorEnabled) return;
+    const btn = e.target.closest('button[type="submit"], button.js-comment-and-button');
+    if (!btn) return;
+    if (btn.dataset.mpfMirrorBypass === '1') return;
+
+    const textarea = findDraftTextareaForButton(btn);
+    if (!textarea) return;
+
+    // TOXIC만 차단 — Rush는 인라인 패널에서 이미 경고됨
+    const toxicMatches = getDraftMatches(textarea.value || '', ['toxic']);
+    if (toxicMatches.length === 0) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    showMirrorModal(btn, textarea, toxicMatches);
+}, true);
+
+function showMirrorModal(btn, textarea, matches) {
+    // 모달이 떴다 = 메인테이너가 강한 답글을 보내려 했다 → 카운터 증가
+    State.draftCount++;
+    chrome.storage.local.set({ draftCount: State.draftCount });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'mpf-mirror-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'mpf-mirror-modal';
+
+    const header = document.createElement('div');
+    header.className = 'mpf-mirror-modal-header';
+    header.textContent = '🪞 한 번 더 읽어볼까요?';
+
+    const body = document.createElement('div');
+    body.className = 'mpf-mirror-modal-body';
+
+    const lead = document.createElement('p');
+    lead.className = 'mpf-mirror-modal-lead';
+    lead.textContent = '이 답글에서 강한 표현이 감지됐어요.';
+
+    const phrasesContainer = document.createElement('div');
+    phrasesContainer.className = 'mpf-mirror-phrases';
+    matches.slice(0, 5).forEach(m => {
+        const chip = document.createElement('span');
+        chip.className = 'mpf-mirror-phrase';
+        chip.textContent = m.phrase;
+        phrasesContainer.appendChild(chip);
+    });
+    if (matches.length > 5) {
+        const more = document.createElement('span');
+        more.className = 'mpf-mirror-phrase-more';
+        more.textContent = `외 ${matches.length - 5}개`;
+        phrasesContainer.appendChild(more);
+    }
+
+    const hint = document.createElement('p');
+    hint.className = 'mpf-mirror-modal-hint';
+    hint.innerHTML = '감정이 격해진 상태로 보낸 답글은 종종 후회를 남깁니다.<br>잠시 호흡한 뒤 정말 이대로 보낼지 결정해보세요.';
+
+    body.appendChild(lead);
+    body.appendChild(phrasesContainer);
+    body.appendChild(hint);
+
+    const actions = document.createElement('div');
+    actions.className = 'mpf-mirror-modal-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'mpf-mirror-btn mpf-mirror-btn-secondary';
+    editBtn.textContent = '다시 다듬기';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'mpf-mirror-btn mpf-mirror-btn-primary';
+    sendBtn.disabled = true;
+    const countdownEl = document.createElement('span');
+    countdownEl.className = 'mpf-mirror-btn-countdown';
+    countdownEl.textContent = '5';
+    const labelEl = document.createElement('span');
+    labelEl.className = 'mpf-mirror-btn-label';
+    labelEl.textContent = '초 후 보낼 수 있어요';
+    sendBtn.appendChild(countdownEl);
+    sendBtn.appendChild(labelEl);
+
+    actions.appendChild(editBtn);
+    actions.appendChild(sendBtn);
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    let secondsLeft = 5;
+    const tick = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft <= 0) {
+            clearInterval(tick);
+            sendBtn.disabled = false;
+            countdownEl.textContent = '';
+            labelEl.textContent = '그래도 보내기';
+        } else {
+            countdownEl.textContent = String(secondsLeft);
+        }
+    }, 1000);
+
+    function cleanup() {
+        clearInterval(tick);
+        overlay.remove();
+        document.removeEventListener('keydown', onKey, true);
+    }
+
+    editBtn.addEventListener('click', () => {
+        cleanup();
+        textarea.focus();
+    });
+
+    sendBtn.addEventListener('click', () => {
+        if (sendBtn.disabled) return;
+        cleanup();
+        btn.dataset.mpfMirrorBypass = '1';
+        btn.click();
+        // 다음 tick에 플래그 제거 (재진입 방지)
+        setTimeout(() => { delete btn.dataset.mpfMirrorBypass; }, 0);
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            cleanup();
+            textarea.focus();
+        }
+    });
+
+    function onKey(e) {
+        if (e.key === 'Escape') {
+            cleanup();
+            textarea.focus();
+        }
+    }
+    document.addEventListener('keydown', onKey, true);
+}
+
 // ------------------------------------------------------------
 // 초기화
 // ------------------------------------------------------------
-chrome.storage.local.get(['enabled', 'count', 'categories', 'allowlist'], (data) => {
-    State.enabled = data.enabled !== false; // 기본값 true
-    State.count = typeof data.count === 'number' ? data.count : 0;
-    State.categories = Object.assign(
-        { rush: true, toxic: true, noise: true },
-        data.categories || {}
-    );
-    State.allowlist = Array.isArray(data.allowlist) ? data.allowlist : [];
-    if (State.enabled) scanAll();
-    startObserver();
-});
+chrome.storage.local.get(
+    ['enabled', 'count', 'draftCount', 'categories', 'selfMirrorEnabled', 'allowlist'],
+    (data) => {
+        State.enabled = data.enabled !== false; // 기본값 true
+        State.count = typeof data.count === 'number' ? data.count : 0;
+        State.draftCount = typeof data.draftCount === 'number' ? data.draftCount : 0;
+        State.categories = Object.assign(
+            { rush: true, toxic: true, noise: true },
+            data.categories || {}
+        );
+        State.selfMirrorEnabled = data.selfMirrorEnabled !== false; // 기본값 true
+        State.allowlist = Array.isArray(data.allowlist) ? data.allowlist : [];
+        if (State.enabled) {
+            scanAll();
+            scanDraftTargets();
+        }
+        startObserver();
+    }
+);

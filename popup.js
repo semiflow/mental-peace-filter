@@ -9,6 +9,8 @@ const catToggleEls = document.querySelectorAll('.cat-toggle');
 const allowListEl = document.getElementById('allow-list');
 const allowEmptyEl = document.getElementById('allow-empty');
 const allowCountEl = document.getElementById('allow-count');
+const selfMirrorToggleEl = document.getElementById('self-mirror-toggle');
+const draftCountEl = document.getElementById('draft-count');
 
 const DEFAULT_CATEGORIES = { rush: true, toxic: true, noise: true };
 
@@ -23,6 +25,14 @@ function renderEnabled(enabled) {
 
 function renderCount(count) {
     countEl.textContent = Number(count || 0).toLocaleString();
+}
+
+function renderDraftCount(count) {
+    draftCountEl.textContent = Number(count || 0).toLocaleString();
+}
+
+function renderSelfMirror(enabled) {
+    selfMirrorToggleEl.checked = enabled !== false;
 }
 
 function renderCategories(cats) {
@@ -84,12 +94,16 @@ function renderAllowlist(allowlist) {
 // 초기 로드
 // ------------------------------------------------------------
 async function loadState() {
-    const data = await chrome.storage.local.get(['enabled', 'count', 'categories', 'allowlist']);
+    const data = await chrome.storage.local.get(
+        ['enabled', 'count', 'draftCount', 'categories', 'selfMirrorEnabled', 'allowlist']
+    );
     const enabled = data.enabled !== false;
     const categories = Object.assign({}, DEFAULT_CATEGORIES, data.categories || {});
     renderEnabled(enabled);
     renderCount(data.count);
+    renderDraftCount(data.draftCount);
     renderCategories(categories);
+    renderSelfMirror(data.selfMirrorEnabled !== false);
     renderAllowlist(data.allowlist);
 }
 
@@ -136,6 +150,25 @@ async function handleCategoryChange() {
 catToggleEls.forEach(cb => cb.addEventListener('change', handleCategoryChange));
 
 // ------------------------------------------------------------
+// Self-Tone Mirror 토글 → storage + 현재 탭 메시지
+// ------------------------------------------------------------
+async function handleSelfMirrorChange() {
+    const enabled = selfMirrorToggleEl.checked;
+    await chrome.storage.local.set({ selfMirrorEnabled: enabled });
+
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id || !tab.url) return;
+        if (!tab.url.startsWith('https://github.com/')) return;
+        await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SELF_MIRROR', enabled });
+    } catch (err) {
+        // content script가 주입되지 않은 페이지일 수 있음 — 무시
+    }
+}
+
+selfMirrorToggleEl.addEventListener('change', handleSelfMirrorChange);
+
+// ------------------------------------------------------------
 // 허용목록 항목 삭제 — content script는 storage.onChanged로 자동 재스캔
 // ------------------------------------------------------------
 allowListEl.addEventListener('click', async (e) => {
@@ -157,7 +190,9 @@ allowListEl.addEventListener('click', async (e) => {
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes.count) renderCount(changes.count.newValue);
+    if (changes.draftCount) renderDraftCount(changes.draftCount.newValue);
     if (changes.enabled) renderEnabled(changes.enabled.newValue !== false);
+    if (changes.selfMirrorEnabled) renderSelfMirror(changes.selfMirrorEnabled.newValue !== false);
     if (changes.categories) {
         const cats = Object.assign({}, DEFAULT_CATEGORIES, changes.categories.newValue || {});
         renderCategories(cats);

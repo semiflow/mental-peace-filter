@@ -287,6 +287,31 @@
             background: #fee2e2;
             color: #dc2626;
         }
+
+        /* Self-Tone Mirror mini stat */
+        .mini-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding-top: 10px;
+            margin-top: 8px;
+            border-top: 1px dashed rgba(0, 0, 0, 0.06);
+        }
+        .mini-stat-label {
+            font-size: 11px;
+            color: #64748b;
+        }
+        .mini-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f766e;
+            line-height: 1;
+        }
+        .mini-stat-unit {
+            font-size: 11px;
+            color: #64748b;
+            margin-left: 2px;
+        }
     </style>
 </head>
 <body>
@@ -337,6 +362,21 @@
     <div class="card stats">
         <span class="stats-label">오늘 치유된 텍스트</span>
         <span class="stats-value" id="count">0</span><span class="stats-unit">개</span>
+    </div>
+
+    <div class="card">
+        <p class="cat-heading" style="margin: 0 0 6px;">🪞 Self-Tone Mirror</p>
+        <label class="cat-row" style="border-top: none; padding-top: 4px;">
+            <input type="checkbox" id="self-mirror-toggle">
+            <span>
+                내 답글 톤 점검
+                <span class="cat-desc">강한 표현 감지 시 보내기 전 한 번 더 확인</span>
+            </span>
+        </label>
+        <div class="mini-stat">
+            <span class="mini-stat-label">거울에 비춘 답글</span>
+            <span><span class="mini-stat-value" id="draft-count">0</span><span class="mini-stat-unit">개</span></span>
+        </div>
     </div>
 
     <div class="card">
